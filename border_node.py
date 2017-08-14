@@ -1,14 +1,36 @@
+from flask import Flask, request
 import requests
 import gpsd
+import serial
+import threading
 import time
 
 
-def connect():
-    gpsd.connect()
+measurements = {}
+serial = serial.Serial('/dev/ttyUSB0')
+gpsd.connect()
+app = Flask(__name__)
+
+
+def seats_monitor():
+    while True:
+        data = serial.readline().rstrip()
+        if data:
+            measurements['seats'] = 'True' in data
+
+
+@app.route('/', methods=['POST'])
+def get_measurements():
+    measurements.update(request.form)
+    return 'OK'
+
+
+def speed_monitor():
+    app.run('0.0.0.0')
 
 
 def post_data(data):
-    r = requests.post('https://pagina-do-manas.com/', data=data)
+    r = requests.post('https://api-labredes.herokuapp.com/data', data=data)
     try:
         r.raise_for_status()
     except requests.exceptions.HTTPError:
@@ -17,22 +39,20 @@ def post_data(data):
 
 
 def read_sensors_data():
-    raise NotImplementedError()
-    # Lê de nó 802.15.4
-    # Lê de velocidade
     gpsd_packet = gpsd.get_current()
+    position = gpsd_packet.position
     return {
-        "seats": 14,
-        "weight": 140,
-        "speed": 50,
-        "position": gpsd_packet.position,
+        "position": position,
+        **measurements,
     }
 
 
 def main():
-    connect()
+    threading.Thread(target=seats_monitor).start()
+    threading.Thread(target=speed_monitor).start()
     while True:
         data = read_sensors_data()
+        print('Posting {}'.format(data))
         post_data(data)
         time.sleep(5)
 

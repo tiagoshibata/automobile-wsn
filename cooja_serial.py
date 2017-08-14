@@ -8,7 +8,7 @@ class SlipRadio():
 
     def set_channel(self, channel):
         self.conn.send(b'!C' + bytes([channel]))
-        self.conn.send(b'?C')  # XXX
+        self.conn.send(b'?C')
 
     def set_mac(connection, mac):
         assert(len(mac) == 8)
